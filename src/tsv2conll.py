@@ -10,9 +10,9 @@ pkuTokenizer = pkuseg.pkuseg(model_name='news')
 
 import time 
 s1 = time.perf_counter()
-file  = open('../data/t_sample_nc_v15.tsv','r')
-fr_write = open('../data/t_fr_sample_nc_v15.conll','w')
-zh_write = open('../data/t_zh_sample_nc_v15.conll','w')
+file  = open('../data/news-commentary-v15.fr-zh.tsv','r')
+fr_write = open('../data/fr_nc_v15.conll','w')
+zh_write = open('../data/zh_nc_v15.conll','w')
 
 # nettoyer le corpus et le passe au parser 
 def doc2conll(file):
@@ -72,4 +72,4 @@ file.close()
 fr_write.close()
 zh_write.close()
 e1 = time.perf_counter()
-print ("#######################cube2conll:",e1-s1)
+print ("#######################tsv2conll:",e1-s1)
