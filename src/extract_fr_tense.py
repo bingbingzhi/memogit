@@ -1,15 +1,18 @@
 #-*-coding:utf-8-*-
 import pandas as pd
+from decimal import *
+from collections import defaultdict
+
 class DepGraph:
 
     ROOT_TOKEN = '<root>'
     
-    def __init__(self,vForms,deprel,lemma,feats,edges,wordlist=None,upos_tags=None,with_root=False):
+    def __init__(self,sent_id,vForms,deprel,lemma,feats,edges,wordlist=None,upos_tags=None,with_root=False):
          
         self.gov2dep = { }
         self.has_gov = set()            #set of nodes with a governor
         self.root_id = None
-
+        self.sentence_id = sent_id
 
         for (gov,label,dep) in edges:
             self.add_arc(gov,label,dep)
@@ -55,7 +58,7 @@ class DepGraph:
         """
         Reads a conll tree from input stream 
         """
-        def graph(conll):
+        def graph(conll,sent_id):
             words   = [ ]
             upostags = [ ]
             edges   = [ ]
@@ -89,27 +92,45 @@ class DepGraph:
                 else: 
                     vForms.append('_')                    
 
-            return DepGraph(vForms,deprel,lemma,feats_tense,edges,words,upos_tags=upostags,with_root=True)
+            return DepGraph(sent_id,vForms,deprel,lemma,feats_tense,edges,words,upos_tags=upostags,with_root=True)
 
         conll = [ ]
         deptrees = [ ]
         line  = istream.readline( ) # a string
         #checks whether the string consists of whitespace or contains #
-        while istream and (line.isspace() or line.startswith('#')):
+        while istream and line.startswith('#'):#(line.isspace() or ):
+            if line.startswith('# sentenceID'):
+                sent_id = line.split("=")[1].strip()
+                sent_id = sent_id.split('_')
+                #print("#1",sent_id)
+                if len(sent_id[1])==1:
+                    sent_id = int(sent_id[0]+'0'+sent_id[1])
+                else:
+                    sent_id = int(sent_id[0]+sent_id[1])
+
             line  = istream.readline()
+
         while istream and not line.strip() == '':
-        	line = line.split('\t') #split this String by tabulator into an array
-        	conll.append(line)
-        	line = istream.readline()
-        	while line.startswith('#'):
-        		line = istream.readline()
-        	if line[:2] == '1\t':
-        		deptree = graph(conll)
-        		deptrees.append(deptree)
-        		conll = [ ]
+            line = line.split('\t') #split this String by tabulator into an array
+            conll.append(line)
+            line = istream.readline()
+            while line.startswith('#'):
+                if line.startswith('# sentenceID'):
+                    deptree = graph(conll,sent_id)
+                    deptrees.append(deptree)
+                    conll = [ ]
+                    sent_id = line.split("=")[1].strip()
+                    sent_id = sent_id.split('_')
+                    #print("#2",sent_id)
+                    if len(sent_id[1])==1:
+                        sent_id = int(sent_id[0]+'0'+sent_id[1])
+                    else:
+                        sent_id = int(sent_id[0]+sent_id[1])                
+                line = istream.readline()
+
         if not conll:
         	return None
-        deptrees.append(graph(conll))
+        deptrees.append(graph(conll,sent_id))
         return deptrees
 
     def __str__(self):
@@ -155,14 +176,19 @@ def treebank(filename):
     istream.close()
     return tlist
 
-nc_treebank = treebank('../data/fr_nc_v15.conll')
+nc_treebank = treebank('../data/filtered_fr_sample_nc_v15.conll')
+
+n_doc = len(nc_treebank)
+#print(len(nc_treebank[0]))
+
 """
-print(len(nc_treebank))
-print(len(nc_treebank[0]))
-for trees in nc_treebank[:1]:
+for trees in nc_treebank[:3]:
     for tree in trees: 
-        print('#tree: \n',tree)
-        print('#tree.words: ',tree.words)
+        #print('#tree: \n',tree)
+        #print('#tree.words: ',tree.words)
+        print('sent_id: ',tree.sentence_id)
+    print()
+
         print('#tree.lemma: ',tree.lemma)
         print('#tree.vForms: ',tree.verb_form)        
         print('#tree.gov2dep: ',tree.gov2dep)
@@ -170,8 +196,8 @@ for trees in nc_treebank[:1]:
         print('#tree.root_id: ',tree.root_id)
         print('#tree.deprel: ',tree.deprel)
         print()
-    
 """
+
 
 def root_tense(deptree):
     tense_sent = [ ]
@@ -192,7 +218,7 @@ def root_tense(deptree):
             root_dep = deptree.gov2dep[idx]
             edge_verbInf = [x for x in root_dep if deptree.verb_form[x[2]]=="VerbForm=Inf"]
             if tense in ['Imp','Past']:
-                tense_sent.append('passe')
+                tense_sent.append('Past')
             # capturer le futur proche avec aller(présent)+ verbe infinitive
             elif tense == 'Pres' and deptree.lemma[idx]=="aller" and edge_verbInf:
                 tense_sent.append('Fut')
@@ -216,7 +242,7 @@ def root_tense(deptree):
                     tense = deptree.feats_tense[edge[0][2]].split('=')[1]
                     if edge[0][1] in ['aux:pass','cop','aux:caus']:
                         if tense in ['Imp','Past']:
-                            tense_sent.append('passe')
+                            tense_sent.append('Past')
                         else:
                             tense_sent.append(tense)
                         
@@ -224,8 +250,8 @@ def root_tense(deptree):
                         
                         # passé composé; plus-que-pafait; passé antérieur; futur antérieur; 
                         # cond passé; impératif passé; sub.passé ou sub.plus-que-parfait  # les temps rares
-                        # all the complexe tense should be put into category "passe"
-                        tense_sent.append('passe')
+                        # all the complexe tense should be put into category "Past"
+                        tense_sent.append('Past')
                         
                     else:
                         #- edge == 'conj' owing to root annotated errors 
@@ -257,12 +283,12 @@ def normalise_tense(tense_list,deptree):
 	tenses = [ ]
 	for idx in tense_idx:
 		if deptree.upos_tags[idx] == "AUX" and deptree.deprel[idx]=="aux:tense":
-			tense = "passe"
+			tense = "Past"
 			
 		else:
 			tense= deptree.feats_tense[idx].split('=')[1]
 			if tense in ['Imp','Past']:
-				tense = "passe"
+				tense = "Past"
 		tenses.append(tense)
 	if len(set(tenses)) == 1:
 		gold_tense = tenses[0]
@@ -272,20 +298,33 @@ def normalise_tense(tense_list,deptree):
 		#print("tense-conflict: \n",deptree)
 	return gold_tense
 
-count = 0
-tenses_list = [ ]
-doc_tenses= [ ]
+
+sent2tense = defaultdict(str)
 for doc in nc_treebank:
     for tree in doc:
-        doc_tenses.extend(root_tense(tree))
+        tense = root_tense(tree)
+        if len(tense)!=1:
+            print("error! more thant one major tense: ", tree.sentence_id,tense)
+        sent2tense[tree.sentence_id]= tense[0]
+    
+    if len(tree)>99:
+        print("error! doc length > 99")
+    """
     result = pd.value_counts(doc_tenses)
     result.index = result.index.astype(str)
     distr_tense = result.to_dict()
-    past_pres = distr_tense["passe"]/distr_tense["Pres"]
+    if "Past" not in distr_tense:
+    	past_pres = 0
+    elif "Pres" not in distr_tense:
+    	past_pres = 99
+    else:
+    	past_pres = distr_tense["Past"]/distr_tense["Pres"]
     if past_pres >= 0.6:
     	count+=1
     tenses_list.append((past_pres,doc_tenses))
-    doc_tenses = [ ]
-print(len(tenses_list))
-print(count)
+    """
+print("length of tenses dict: ",len(sent2tense))
+#print(sent2tense)
+#print(n_doc)
+#print(count)
 
