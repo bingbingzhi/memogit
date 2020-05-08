@@ -1,12 +1,11 @@
 #-*-coding:utf-8-*-
 import re
-import pkuseg
+import time
 import numpy as np
 import random
 from collections import defaultdict
-from itertools import chain
 import scipy.sparse as sp
-from numpy import argmax
+import bloscpack as bp
 
 from extract_fr_tense import *
 
@@ -166,7 +165,8 @@ def treebank(filename):
     return tlist
 
 
-nc_zh_treebank = treebank('zh_sample_nc_v15.conll')#('../data/zh_nc_v15.conll')
+#nc_zh_treebank = treebank('zh_sample_nc_v15.conll')#('../data/zh_nc_v15.conll')
+nc_zh_treebank = treebank('../data/filtered_zh_sample_nc_v15.conll')
 #print(len(nc_zh_treebank))
 """
 for trees in nc_zh_treebank[:1]:
@@ -271,7 +271,9 @@ def oneHotEncoding(input,w2id_dico):
 		feats = np.zeros(len(w2id_dico))#,dtype=np.int)
 		for word in input:
 			if word in w2id_dico: #manages unk words (ignore)
-				feats[w2id_dico[word]] = 1		
+				feats[w2id_dico[word]] = 1
+			#else:
+			#	feats = np.zeros(len(w2id_dico)) # aspect_mark raise error here 		
 		#[0 for _ in range(len(w2id_dico))]
 	else:
 		feats = np.zeros(len(w2id_dico))#,dtype=np.int)
@@ -285,13 +287,13 @@ def tree2features(deptree):
 	sentID = deptree.sentence_id
 	# we don't analyse the 1st sentence (title) of each doc, so the contexte of the 1st sent after title is 'UNK'
 	context_tense = [sent2tense[sentID-1]]
-	ylabel = sent2tense[sentID]
+	ylabel = temps2idx[sent2tense[sentID]]
 	#print(context_tense)  
 	F_context = oneHotEncoding(context_tense,temps2idx)
 	#print(F_context)
 	#print(F_context.shape)
 	
-	aspect_mark = None
+	aspect_mark = set([])
 	tmod = set([])
 	advmod = set([])
 	md = set([])
@@ -300,8 +302,16 @@ def tree2features(deptree):
 	root_id = deptree.root_id
 	if not root_id:
 		print('sentenceID=',deptree.sentence_id)
-		print('****no root:\n',deptree)         
-		VV_id = 0		
+		print('****no root:\n',deptree)
+		print('**** words: ',deptree.words)
+		print('**** xpos: ',deptree.xpos_tags) 
+		F_VV = oneHotEncoding([deptrees.words[1]],word2idx)
+		F_aspect = oneHotEncoding(aspect_mark,mark2idx) 
+		F_tmod = oneHotEncoding(tmod,tmod2idx)
+		F_advmod = oneHotEncoding(advmod,advmod2idx)
+		F_md = oneHotEncoding(md,md2idx)
+		F_WP = oneHotEncoding([(deptrees.words[1],deptrees.xpos_tags[1])],WP2idx)      
+				
 	else:
 		root_dep = deptree.gov2dep[root_id]# pas sûr d'avoir toujours root-dep? 
 		root_deprel = [edge[1] for edge in root_dep]
@@ -337,8 +347,8 @@ def tree2features(deptree):
 		# feature n°3 aspect marker
 		if 'case:aspect' in root_deprel:
 			aspect_edge = [x for x in root_dep if x[1]=="case:aspect"]
-			aspect_mark = deptree.words[aspect_edge[0][2]]
-		F_aspect = oneHotEncoding([aspect_mark],mark2idx)
+			aspect_mark.add(deptree.words[aspect_edge[0][2]])
+		F_aspect = oneHotEncoding(aspect_mark,mark2idx)
 
 
 		# feature n°4 nominal tense modifier	
@@ -417,11 +427,29 @@ def make_samples(dataset,n_samples,n_features):
 				X_matrix[id_sample]=xfeatures
 				id_sample += 1
 				Y.append(y)
-	return X_matrix,Y
+	return X_matrix,np.array(Y)
 
 X_train,y_train = make_samples(train_idx,n_train_samples,n_features)
 X_dev,y_dev = make_samples(dev_idx,n_dev_samples,n_features)
 X_test,y_test = make_samples(test_idx,n_test_samples,n_features)
+
+tsizeMB = sum(i.size*i.itemsize for i in (X_train,X_dev,X_test))/2**20.
+#blosc_args = bp.DEFAULT_BLOSC_ARGS
+#blosc_args['clevel'] = 6
+t = time.time()
+bp.pack_ndarray_to_file(X_train, '../data/X_train.blp')#, blosc_args=blosc_args)
+bp.pack_ndarray_to_file(y_train, '../data/y_train.blp')
+bp.pack_ndarray_to_file(X_dev, '../data/X_dev.blp')#, blosc_args=blosc_args)
+bp.pack_ndarray_to_file(y_dev, '../data/y_dev.blp')
+bp.pack_ndarray_to_file(X_test, '../data/X_test.blp')#, blosc_args=blosc_args)
+bp.pack_ndarray_to_file(y_test, '../data/y_test.blp')
+print(y_test)
+print(type(y_test))
+print(y_test.shape)
+
+t1 = time.time() - t
+print("store time = %.2f (%.2f MB/s)" % (t1, tsizeMB/t1))
+
 
 """
 print(X_train.shape)
