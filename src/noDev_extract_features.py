@@ -6,7 +6,7 @@ import random
 from collections import defaultdict
 import scipy.sparse as sp
 import bloscpack as bp
-
+import pandas as pd
 from extract_fr_tense import *
 
 class DepGraph:
@@ -175,49 +175,34 @@ for trees in nc_zh_treebank[:1]:
         print('#tree.words: ',tree.words)
         print('#tree.xpos_tags: ',tree.xpos_tags)
 """
+idx_UNK = [k for k,v in sent2tense.items() if v == 'UNK']
+#print("UNK label:", len(idx_UNK),"#",idx_UNK[:15])
 t_samples = []
-tense_distr = []
+no_pres_samples = []
+#tense_distr = []
 for doc in nc_zh_treebank:
-	t_samples.extend(doc[1:])
+	for tree in doc:
+		if tree.sentence_id not in idx_UNK:
+			t_samples.append(tree)
+			if sent2tense[tree.sentence_id] !="Pres":
+				no_pres_samples.append(tree)
 print("#total samples: ",len(t_samples))
-for s in t_samples:
-	tense_distr.append(sent2tense[s.sentence_id])
-random.shuffle(t_samples)
+print("#no pres samples: ",len(no_pres_samples))
 
+random.shuffle(t_samples)
+random.shuffle(no_pres_samples)
+#idistr=pd.value_counts(te  nse_distr)
+#print(distr)
 train_len = round(len(t_samples)*0.8)
 train_treebank = t_samples[:train_len]
 test_treebank = t_samples[train_len:]
-
-"""
-n_docs = len(nc_zh_treebank)
-docs_idx = list(range(n_docs))
-random.shuffle(docs_idx)
-train_len = round(n_docs*0.8)
-dev_len = round(n_docs*0.1)
-
-train_idx = docs_idx[:train_len]
-dev_idx = docs_idx[train_len:train_len+dev_len]
-test_idx =  docs_idx[train_len+dev_len:]
-
-train_treebank = [nc_zh_treebank[idx] for idx in train_idx]
-dev_treebank = [nc_zh_treebank[idx] for idx in dev_idx]
-test_treebank = [nc_zh_treebank[idx] for idx in test_idx]
-t_train_samples = 0
-for doc in train_treebank:
-	t_train_samples +=len(doc)
-t_dev_samples = 0
-for doc in dev_treebank:
-	t_dev_samples +=len(doc)
-t_test_samples = 0
-for doc in test_treebank:
-	t_test_samples +=len(doc)
-
-n_train_samples = t_train_samples - len(train_treebank)
-n_dev_samples = t_dev_samples - len(dev_treebank)
-n_test_samples = t_test_samples - len(test_treebank)
-"""
-
-
+no_pres_train_len = round(len(no_pres_samples)*0.8)
+no_pres_train_treebank = no_pres_samples[:no_pres_train_len]
+no_pres_test_treebank = no_pres_samples[no_pres_train_len:]
+train_tense_distr = [sent2tense[s.sentence_id] for s in train_treebank]
+test_tense_distr = [sent2tense[s.sentence_id] for s in test_treebank]
+print(pd.value_counts(train_tense_distr))
+print(pd.value_counts(test_tense_distr))
 #n_trainDoc = len(train_idx)
 #n_testDoc = len(test_idx)
 #dev_len = round(n_docs*0.1)
@@ -233,13 +218,15 @@ feats_tmod = ['事实上','实际上','如今','现','现在','现今','目前',
 tmod2idx = dict(zip(feats_tmod,range(len(feats_tmod))))
 feats_adv = ['已经','因此','正在','一直','在','仍然','仍','已','也许','正','依然','未','再','曾','往往','这就','不再','通常','常常','曾经','诚然','很快','不断','经常''日益','总是','很少','没','从来','早已','必然','即将','永远','尚未','刚刚','绝不','多年来','纷纷','至今','一般','立刻','依旧','实际上''尚','早','毫不','一再','立即','随之','马上','原本','就要','从未','总','而后','始终','本来','常','暂时','必将','后','最近','向来','近','时常','多年''众所周知','大都','从不','将要','快','终将','从此','也曾','未曾' ]
 advmod2idx = dict(zip(feats_adv,range(len(feats_adv))))
-feats_temps = ['UNK','Past','Pres','Fut']
+feats_temps_1 = ['Pres','NoPres']
+feats_temps_2 = ['Past','Fut']
+feats_temps = ['Past','Fut','Pres']
 temps2idx = dict(zip(feats_temps,range(len(feats_temps))))
 feats_aspect = ['了','过', '着']
 mark2idx = dict(zip(feats_aspect,range(len(feats_aspect))))
 
-
-valence_mark = ['将','把','被']
+val_mark = ['将','把']
+#val2idx = dict(zip(val_mark,range(len(val_mark))))
 
 def make_w2idx(dataset):
 	wordset = set([])
@@ -254,8 +241,8 @@ def make_w2idx(dataset):
 			upos = sent_tree.upos_tags[node]
 			if upos != "PUNCT" and (not bool(re.search(punct,word))) and (not bool(re.search('[a-zA-Z]', word))): #	xpos != 'FW': #		
 				wordset.add(word)
-				if xpos == "FW":
-					print(word)	
+				#if xpos == "FW":
+				#	print(word)	
 				WPset.add((word,xpos))
 	return wordset,WPset
 
@@ -267,9 +254,9 @@ WP2idx = dict(zip(WPset,range(len(WPset))))
 print("words set length: ",len(wordset))
 print("WP set length: ",len(WPset))
 
-n_features = len(feats_temps)+len(wordset)+len(feats_aspect)+len(feats_tmod)+len(feats_adv)+len(feats_md)+len(WP2idx)
+n_features = len(feats_temps)+len(word2idx)+len(feats_aspect)+len(feats_tmod)+len(feats_adv)+len(feats_md)+len(WP2idx)+2
 #n_train_samples = len(sent2tense)-n_docs
-
+#n_features = 2 + len(WP2idx)+len(feats_temps)+len(feats_adv)+len(feats_aspect)+len(feats_md)
 print("#features: ",n_features)
 print("#train_samples: ",len(train_treebank))
 #print("#dev_samples: ",n_test_samples)
@@ -290,14 +277,25 @@ def oneHotEncoding(input,w2id_dico):
 	return feats
 
 
-def tree2features(deptree):
+def tree2features(deptree,Pres=False):
 
 	#feature n°1 context tense: the major tense of the precedent sentence
 	sentID = deptree.sentence_id
 	# we don't analyse the 1st sentence (title) of each doc, so the contexte of the 1st sent after title is 'UNK'
-	context_tense = [sent2tense[sentID-1]]
-	ylabel = temps2idx[sent2tense[sentID]]
-	#print(context_tense)  
+	if sent2tense[sentID-1] == 'UNK':
+		context_tense = []
+	else:
+		context_tense = [sent2tense[sentID-1]]
+	if Pres:
+		if sent2tense[sentID]=="Pres":
+			ylabel=0
+		else:
+			ylabel=1 
+
+	else:
+		#temps2idx_2 = dict(zip(feats_temps_2,range(len(feats_temps_2))))
+		ylabel = feats_temps_2.index([sent2tense[sentID]])
+	
 	F_context = oneHotEncoding(context_tense,temps2idx)
 	#print(F_context)
 	#print(F_context.shape)
@@ -310,17 +308,17 @@ def tree2features(deptree):
 
 	root_id = deptree.root_id
 	if not root_id:
-		print('sentenceID=',deptree.sentence_id)
-		print('****no root:\n',deptree)
-		print('**** words: ',deptree.words)
-		print('**** xpos: ',deptree.xpos_tags) 
-		F_VV = oneHotEncoding([deptrees.words[1]],word2idx)
+		#print('sentenceID=',deptree.sentence_id)
+		#print('****no root:\n',deptree)
+		#print('**** words: ',deptree.words)
+		#print('**** xpos: ',deptree.xpos_tags) 
+		F_VV = oneHotEncoding([deptree.words[1]],word2idx)
 		F_aspect = oneHotEncoding(aspect_mark,mark2idx) 
 		F_tmod = oneHotEncoding(tmod,tmod2idx)
 		F_advmod = oneHotEncoding(advmod,advmod2idx)
 		F_md = oneHotEncoding(md,md2idx)
-		F_WP = oneHotEncoding([(deptrees.words[1],deptrees.xpos_tags[1])],WP2idx)      
-				
+		F_WP = oneHotEncoding([(deptree.words[1],deptree.xpos_tags[1])],WP2idx)      
+		F_val = np.zeros(2)		
 	else:
 		root_dep = deptree.gov2dep[root_id]# pas sûr d'avoir toujours root-dep? 
 		root_deprel = [edge[1] for edge in root_dep]
@@ -364,6 +362,7 @@ def tree2features(deptree):
 		if "nmod:tmod" in root_deprel:
 			edge_tmod = [x for x in root_dep if x[1]=="nmod:tmod"]
 			for edge in edge_tmod:
+				#tmod.add(deptree.words[edge[2]])
 				if deptree.words[edge[2]] in feats_tmod:
 					tmod.add(deptree.words[edge[2]])
 		F_tmod = oneHotEncoding(tmod,tmod2idx)
@@ -390,51 +389,52 @@ def tree2features(deptree):
 			WP.add((deptree.words[node],deptree.xpos_tags[node]))
 		F_WP = oneHotEncoding(WP,WP2idx)
 
-		"""
-		# feature passif and disposal structures
+		
+		# feature n°8 passif and disposal structures
+		pass_mark = None
+		valence_mark = None 
 		if "aux:pass" in root_deprel:
 			passif_edge = [x for x in root_dep if x[1]=="aux:pass"]
-			valence_mark = deptree.words[passif_edge[0][2]]
+			pass_mark = deptree.words[passif_edge[0][2]]
 		elif "obl:patient" in root_deprel:
 			patient_edge = [x for x in root_dep if x[1]=="obl:patient"]
 			patient_id = patient_edge[0][2]
-			if patient_id in deptree.gov2dep[patient_id]:
+			if patient_id in deptree.gov2dep:
 				#dispo_edge = [x for x in root_dep if x[1]=="obl:patient"]
-				if (patient_id,"case",deptree.words.index('把')) in deptree.gov2dep[patient_id]:
+				if '把' in deptree.words and (patient_id,"case",deptree.words.index('把')) in deptree.gov2dep[patient_id]:
 					valence_mark = '把'
-				elif (patient_id,"case",deptree.words.index('将')) in deptree.gov2dep[patient_id]:
+				elif '将'in deptree.words and (patient_id,"case",deptree.words.index('将')) in deptree.gov2dep[patient_id]:
 					valence_mark = '将'
-		"""	
-		#deptree.words[VV_id]							
+		
+		if pass_mark:
+			F_pass = np.ones(1)	
+		else:
+			F_pass = np.zeros(1)
+		if valence_mark:
+			F_valence = np.ones(1)
+		else:
+			F_valence = np.zeros(1)
+		F_val = np.concatenate((F_pass,F_valence))							
 		
 
-	x1 = np.concatenate((F_context,F_aspect,F_VV))
-	x2 = np.concatenate((x1,F_tmod,F_advmod))
-	xfeatures = np.concatenate((x2,F_md,F_WP))
-
+	x1 = np.concatenate((F_context,F_aspect,F_advmod))
+	x2= np.concatenate((x1,F_md,F_WP))
+	x3 = np.concatenate((x2,F_tmod,F_VV))
+	xfeatures = np.concatenate((x3,F_val))
+	#print("xfeatures.shape: ",xfeatures.shape)
+	#xfeatures = np.concatenate((F_context,F_advmod,F_WP))     
 	return xfeatures.reshape(1,-1),ylabel
 
 
 
-def make_samples(dataset,n_samples,n_features):
+def make_samples(dataset,n_samples,n_features,Pres=True):
 	
 	X_matrix=np.zeros((n_samples,n_features))
 	Y = []
 	id_sample = 0
 	#print(type(dataset))	 
 	for deptree in dataset:
-		"""
-		sentID = deptree.sentence_id
-		if len(str(sentID)) < 3:
-			sentID_str = '00' + str(sentID)
-		else:
-			sentID_str = str(sentID)
-		# ignore the first sentence (the title) of every document
-		if sentID_str[-2:]=="00":
-			continue				 
-		else:
-		"""
-		xfeatures,y = tree2features(deptree)
+		xfeatures,y = tree2features(deptree,Pres)
 		X_matrix[id_sample]=xfeatures
 		id_sample += 1
 		Y.append(y)
@@ -443,31 +443,34 @@ def make_samples(dataset,n_samples,n_features):
 X_train,y_train = make_samples(train_treebank,len(train_treebank),n_features)
 #X_dev,y_dev = make_samples(dev_idx,n_dev_samples,n_features)
 X_test,y_test = make_samples(test_treebank,len(test_treebank),n_features)
+#no_pres_X_train,no_pres_y_train = make_samples(no_pres_train_treebank,len(no_pres_train_treebank),n_features,Pres=False)
+#no_pres_X_test,no_pres_y_test = make_samples(no_pres_test_treebank,len(no_pres_test_treebank),n_features,Pres=False)
+#tsizeMB = sum(i.size*i.itemsize for i in (X_train,X_test))/2**20.
 
-
-tsizeMB = sum(i.size*i.itemsize for i in (X_train,X_test))/2**20.
 #blosc_args = bp.DEFAULT_BLOSC_ARGS
 #blosc_args['clevel'] = 6
 t = time.time()
-bp.pack_ndarray_to_file(X_train, '../data/X_train.blp')#, blosc_args=blosc_args)
+
 bp.pack_ndarray_to_file(y_train, '../data/y_train.blp')
-#bp.pack_ndarray_to_file(X_dev, '../data/X_dev.blp')#, blosc_args=blosc_args)
-#bp.pack_ndarray_to_file(y_dev, '../data/y_dev.blp')
-bp.pack_ndarray_to_file(X_test, '../data/X_test.blp')#, blosc_args=blosc_args)
 bp.pack_ndarray_to_file(y_test, '../data/y_test.blp')
-print(y_test)
-print(type(y_test))
-print(y_test.shape)
+#print(y_test)
+#print(type(y_test))
+#print(y_test.shape)
 
+#t1 = time.time() - t
+#print("store time = %.2f (%.2f MB/s)" % (t1, tsizeMB/t1))
+#t = time.time()
+X_train = sp.csr_matrix(X_train)
+X_test = sp.csr_matrix(X_test)
+sp.save_npz('../data/X_train.npz',X_train)
+sp.save_npz('../data/X_test.npz',X_test)
 t1 = time.time() - t
-print("store time = %.2f (%.2f MB/s)" % (t1, tsizeMB/t1))
+print("store time = %.2f " % (t1))
 
-"""
-print(X_train.shape)
-print(len(y_train))
-print(X_test.shape)
-print(len(y_test))
+#print(X_train.shape)
+#print(len(y_train))
+#print(X_test.shape)
+#print(len(y_test))
 #Sxfeatures = sp.csr_matrix(X_matrix)
 #print(Sxfeatures)
 #print(sp.csr_matrix(X_matrix[1]))
-"""
