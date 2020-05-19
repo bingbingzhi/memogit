@@ -307,9 +307,9 @@ def root_tense(deptree):
 # for sentences that we can't get root tense infos neither from root nor from root deps
 def normalise_tense(tense_list,deptree):
 
-	tense_idx = [i for i in range(len(deptree.feats_tense)) if deptree.feats_tense[i] != '_' ]
-	tenses = [ ]
-	for idx in tense_idx:
+    tense_idx = [i for i in range(len(deptree.feats_tense)) if deptree.feats_tense[i] != '_' ]
+    tenses = [ ]
+    for idx in tense_idx:
                 mood = deptree.feats_tense[edge[0][2]][0].split('=')[1]
                 t = deptree.feats_tense[edge[0][2]][1].split('=')[1]
                 if deptree.upos_tags[idx] == "AUX" and deptree.deprel[idx]=="aux:tense":
@@ -343,12 +343,12 @@ def normalise_tense(tense_list,deptree):
                             tense = t
                 #tense= deptree.feats_tense[idx].split('=')[1]
                 tenses.append(tense)
-        if len(set(tenses)) == 1:
+    if len(set(tenses)) == 1:
             gold_tense = tenses[0]
-	else:
+    else:
             gold_tense = "UNK"
             #print("tense-conflict: \n",deptree)
-        return gold_tense
+    return gold_tense
 
 
 sent2tense = defaultdict(str)
