@@ -18,13 +18,13 @@ import seaborn as sns
 np.set_printoptions(precision=2)
 t = time.time()
 #X_train = bp.unpack_ndarray_from_file('../data/X_train.blp')
-X1_train = sp.load_npz('../data/p2_X_train.npz')
-y1_train = bp.unpack_ndarray_from_file('../data/p2_y_train.blp')
-X2_train = sp.load_npz('../data/p2_no_pres_X_train.npz')
-y2_train = bp.unpack_ndarray_from_file('../data/p2_no_pres_y_train.blp')
+X1_train = sp.load_npz('../data/binM_X_train.npz')
+y1_train = bp.unpack_ndarray_from_file('../data/binM_y_train.blp')
+X2_train = sp.load_npz('../data/binM_no_pres_X_train.npz')
+y2_train = bp.unpack_ndarray_from_file('../data/binM_no_pres_y_train.blp')
 #X_test = bp.unpack_ndarray_from_file('../data/X_test.blp')
-X_test = sp.load_npz('../data/p2_X_test.npz')
-y_test = bp.unpack_ndarray_from_file('../data/p2_y_test.blp')
+X_test = sp.load_npz('../data/binM_X_test.npz')
+y_test = bp.unpack_ndarray_from_file('../data/binM_y_test.blp')
 #tsizeMB = sum(i.size*i.itemsize for i in (X_train,X_test))/2**20
 t1 = time.time() - t
 print("loading time = %.2f " % (t1))
@@ -59,12 +59,15 @@ print(pres_notPres_clf.best_estimator_)
 
 y1_predTrain = pres_notPres_clf.predict(X1_train)
 print(accuracy_score(y1_train, y1_predTrain))
+print(classification_report(y1_train, y1_predTrain))
+
 y1predTest = pres_notPres_clf.predict(X_test)
+
 print(y1predTest.shape)
 print(y1predTest[:30])
 
 
-no_pres_idxs= np.where(y1predTest == 3)[0]
+no_pres_idxs= np.where(y1predTest == 5)[0]
 X_test=X_test.todense()
 n_X_test=X_test.take(no_pres_idxs,axis=0)
 n_X_test = sp.csr_matrix(n_X_test)
@@ -79,6 +82,7 @@ print(past_fut_clf.best_estimator_)
 # print prediction results
 y2_predTrain = past_fut_clf.predict(X2_train)
 print(accuracy_score(y2_train, y2_predTrain))
+print(classification_report(y2_train, y2_predTrain))
 #print(confusion_matrix(y_train,y_predTrain1,labels = [0,1,2,3]))
 y2predTest = past_fut_clf.predict(n_X_test)
 c=0
@@ -145,8 +149,8 @@ def plot_confusion_matrix(y_test, y1predTest, classes,
     fig.tight_layout()
     return ax
 
-np.set_printoptions(precision=2)
+#np.set_printoptions(precision=2)
 # Plot normalized confusion matrix
-plot_confusion_matrix(y_test, y1predTest, classes=['Past','Fut','Pres'], normalize=True,
-                      title=None)
-plt.savefig('2binary.png',dpi=200)
+#plot_confusion_matrix(y_test, y1predTest, classes=['Fut','Past','PC','CndT','Pres'], normalize=True,
+#                      title=None)
+#plt.savefig('2binary.png',dpi=200)
