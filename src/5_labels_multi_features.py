@@ -7,7 +7,7 @@ from collections import defaultdict
 import scipy.sparse as sp
 import bloscpack as bp
 import pandas as pd
-from extract_fr_tense import *
+from 5_labels_extract_fr_tense import *
 
 class DepGraph:
 
@@ -178,35 +178,27 @@ for trees in nc_zh_treebank[:1]:
 idx_UNK = [k for k,v in sent2tense.items() if v == 'UNK']
 #print("UNK label:", len(idx_UNK),"#",idx_UNK[:15])
 t_samples = []
-no_pres_samples = []
-#tense_distr = []
+tense_distr = []
 for doc in nc_zh_treebank:
 	for tree in doc:
 		if tree.sentence_id not in idx_UNK:
 			t_samples.append(tree)
-			#if sent2tense[tree.sentence_id] !="Pres":
-			#	no_pres_samples.append(tree)
+			tense_distr.append(sent2tense[tree.sentence_id])
 print("#total samples: ",len(t_samples))
-#print("#no pres samples: ",len(no_pres_samples))
+
 
 random.shuffle(t_samples)
-#random.shuffle(no_pres_samples)
-#idistr=pd.value_counts(te  nse_distr)
-#print(distr)
+distr=pd.value_counts(tense_distr)
+print("distribution des temps des données nettoyées:\n "distr)
+
 train_len = round(len(t_samples)*0.8)
 train_treebank = t_samples[:train_len]
 test_treebank = t_samples[train_len:]
 
-#no_pres_train_samples = [tree for tree in train_treebank if sent2tense[tree.sentence_id] != "Pres"]
-#print("With pres train samples: ",len(train_treebank))
-#print("No pres train samples: ",len(no_pres_train_samples))
-#no_pres_train_len = round(len(no_pres_samples)*0.8)
-#no_pres_train_treebank = no_pres_samples[:no_pres_train_len]
-#no_pres_test_treebank = no_pres_samples[no_pres_train_len:]
 train_tense_distr = [sent2tense[s.sentence_id] for s in train_treebank]
 test_tense_distr = [sent2tense[s.sentence_id] for s in test_treebank]
-#print(pd.value_counts(train_tense_distr))
-#print(pd.value_counts(test_tense_distr))
+print(pd.value_counts("train: \n",train_tense_distr))
+print(pd.value_counts("test: \n",test_tense_distr))
 
 feats_md = ['可能', '能', '会', '未能', '必须', '可以', '应当', '足以', '不会', '不能', '需要', '应该', '应', '能否', '能够', '要', '想', '可', '不可能', '才能', '不该', '不必', '尽可能', '不难', '并不会', '只能', '不愿', '不可', '不要', '愿意', '需', '未必', '不得不', '请', '不只', '不想','得','必需','必','必定','必将','不曾']
 md2idx = dict(zip(feats_md,range(len(feats_md))))
@@ -216,7 +208,7 @@ feats_adv = ['已经','因此','正在','一直','在','仍然','仍','已','也
 advmod2idx = dict(zip(feats_adv,range(len(feats_adv))))
 feats_temps_1 = ['Pres','NoPres']
 feats_temps_2 = ['Past','Fut']
-feats_temps = ['Past','Fut','Pres']
+feats_temps = ['Fut','Past','PC','Cnd','Pres']
 temps2idx = dict(zip(feats_temps,range(len(feats_temps))))
 feats_aspect = ['了','过', '着']
 mark2idx = dict(zip(feats_aspect,range(len(feats_aspect))))
@@ -287,26 +279,10 @@ def tree2features(deptree,Pres=True,y_test_Pres=False):
 		context_tense = []
 	else:
 		context_tense = [sent2tense[sentID-1]]
-	"""
-	if Pres and not y_test_Pres:
-		if sent2tense[sentID]=="Pres":
-			ylabel=2
-		else:
-			ylabel=3 
-	elif Pres and y_test_Pres:
-		ylabel = feats_temps.index(sent2tense[sentID])
-	else:
-		#temps2idx_2 = dict(zip(feats_temps_2,range(len(feats_temps_2))))
-		if sent2tense[sentID]=="Past":
-			ylabel=0
-		else:
-			ylabel=1
-		#ylabel = feats_temps_2.index(sent2tense[sentID])
-	"""	
+
 	F_context = oneHotEncoding(context_tense,temps2idx)
 	ylabel = feats_temps.index(sent2tense[sentID])
-	#print(F_context)
-	#print(F_context.shape)
+
 	
 	aspect_mark = set([])
 	tmod = set([])
@@ -460,8 +436,8 @@ X_test,y_test = make_samples(test_treebank,len(test_treebank),n_features,Pres=Tr
 #blosc_args['clevel'] = 6
 t = time.time()
 
-bp.pack_ndarray_to_file(y_train, '../data/y_train.blp')
-bp.pack_ndarray_to_file(y_test, '../data/y_test.blp')
+bp.pack_ndarray_to_file(y_train, '../data/mu5_y_train.blp')
+bp.pack_ndarray_to_file(y_test, '../data/mu5_y_test.blp')
 #bp.pack_ndarray_to_file(no_pres_y_train, '../data/p2_no_pres_y_train.blp')
 #bp.pack_ndarray_to_file(y_test, '../data/p2_y_test.blp')
 #print(y_test)
@@ -473,8 +449,8 @@ bp.pack_ndarray_to_file(y_test, '../data/y_test.blp')
 #t = time.time()
 X_train = sp.csr_matrix(X_train)
 X_test = sp.csr_matrix(X_test)
-sp.save_npz('../data/X_train.npz',X_train)
-sp.save_npz('../data/X_test.npz',X_test)
+sp.save_npz('../data/mu5_X_train.npz',X_train)
+sp.save_npz('../data/mu5_X_test.npz',X_test)
 #no_pres_X_train = sp.csr_matrix(no_pres_X_train)
 #no_pres_X_test = sp.csr_matrix(no_pres_X_test)
 #sp.save_npz('../data/p2_no_pres_X_train.npz',no_pres_X_train)
