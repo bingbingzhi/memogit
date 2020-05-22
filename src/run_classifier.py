@@ -24,8 +24,8 @@ import os
 import modeling
 import optimization
 import tokenization
+#import tensorflow.compat.v1 as tf
 import tensorflow as tf
-
 flags = tf.flags
 
 FLAGS = flags.FLAGS
@@ -361,8 +361,9 @@ class ColaProcessor(DataProcessor):
     for (i, line) in enumerate(lines):
       # Only the test set has a header
       if set_type == "test" and i == 0:
-        continue
-      guid = "%s-%s" % (set_type, i)
+        continue      
+      guid = tokenization.convert_to_unicode(line[0])
+      #guid = "%s-%s" % (set_type, i)
       if set_type == "test":
         text_a = tokenization.convert_to_unicode(line[1])
         label = "Past"
@@ -685,10 +686,14 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
         predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
         accuracy = tf.metrics.accuracy(
             labels=label_ids, predictions=predictions, weights=is_real_example)
+        #precision = tf.metrics.precision(labels=label_ids, predictions=predictions, weights=is_real_example)
+        #recall = tf.metrics.recall(labels=label_ids, predictions=predictions, weights=is_real_example)
         loss = tf.metrics.mean(values=per_example_loss, weights=is_real_example)
         return {
             "eval_accuracy": accuracy,
             "eval_loss": loss,
+           # "eval_precision": precision,
+           # "eval_recall": recall
         }
 
       eval_metrics = (metric_fn,
