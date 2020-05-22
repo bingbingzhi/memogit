@@ -1,6 +1,5 @@
 #-*-coding:utf-8-*-
 import pandas as pd
-from decimal import *
 from collections import defaultdict
 
 class DepGraph:
@@ -222,7 +221,7 @@ def root_tense(deptree):
             root_dep = deptree.gov2dep[idx]
             edge_verbInf = [x for x in root_dep if deptree.verb_form[x[2]]=="VerbForm=Inf"]
             if tense in ['Imp','Past']:
-                tense_sent.append('Past')
+                tense_sent.append(tense)
             elif tense == 'Pres':
                 tense_candidat = 'Pres'
                 # capturer le futur proche avec aller(présent)+ verbe infinitive
@@ -257,7 +256,7 @@ def root_tense(deptree):
                     tense = deptree.feats_tense[edge[0][2]][1].split('=')[1]
                     if edge[0][1] in ['aux:pass','cop','aux:caus']:
                         if tense in ['Imp','Past']:
-                            tense_sent.append('Past')
+                            tense_sent.append(tense)
                         elif tense == 'Pres':
                             tense_candidat = 'Pres'
                             # capturer le futur proche avec aller(présent)+ verbe infinitive
@@ -283,13 +282,15 @@ def root_tense(deptree):
                             # root error, no sub root 
                             elif mood == 'Sub':
                                 te = normalise_tense(tense_list,deptree)
-                                print(te,'\n',deptree)
+                                #print(te,'\n',deptree)
                                 tense_sent.append(te)
                         elif tense == 'Fut':
                             tense_sent.append("Fut")
                         #  plus-que-pafait; passé antérieur; futur antérieur; 
                         #    # les temps rares
                         # all the complexe tense should be put into category "Past"
+                        elif tense == 'Imp':
+                            tense_sent.append('PlsP')
                         else:
                             tense_sent.append('Past')
                         
@@ -336,6 +337,8 @@ def normalise_tense(tense_list,deptree):
                                 tense='Cnd'
                             elif t == 'Pres' and mood == 'Sub':
                                 tense= 'UNK'
+                            elif t == 'Imp':
+                                tense = "PlsP"    
                             elif t == 'Fut':
                                 tense="Fut"
                             #  plus-que-pafait; passé antérieur; futur antérieur; 
@@ -345,7 +348,7 @@ def normalise_tense(tense_list,deptree):
                                 tense='Past'				
                     elif idx not in deptree.gov2dep:
                         if t in ['Imp','Past']:
-                            tense = 'Past'
+                            tense = t
                         elif t == 'Pres' and mood == "Cnd":
                             tense = 'Cnd'
                         else:
@@ -354,7 +357,7 @@ def normalise_tense(tense_list,deptree):
                             root_dep = deptree.gov2dep[idx]
                             edge_verbInf = [x for x in root_dep if deptree.verb_form[x[2]]=="VerbForm=Inf"]                        
                             if t in ['Imp','Past']:
-                                tense='Past'
+                                tense=t
                             elif t == 'Pres':
                                 # capturer le futur proche avec aller(présent)+ verbe infinitive
                                 if mood == 'Ind' and deptree.lemma[idx]=="aller" and edge_verbInf:
