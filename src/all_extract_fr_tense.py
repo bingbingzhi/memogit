@@ -182,7 +182,7 @@ def treebank(filename):
 nc_treebank = treebank('../data/filtered_fr_sample_nc_v15.conll')
 
 n_doc = len(nc_treebank)
-#print(len(nc_treebank[0]))
+print(len(nc_treebank))
 
 """
 for trees in nc_treebank[:3]:
